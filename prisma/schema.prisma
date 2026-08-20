@@ -1,0 +1,55 @@
+// Phase 1 schema: auth + folders + files.
+// Swap provider to "postgresql" and set DATABASE_URL for production
+// (SQLite is used here so the project runs locally with zero setup).
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  storageUsed  BigInt   @default(0)
+  storageLimit BigInt   @default(5368709120) // 5 GB free plan default
+  createdAt    DateTime @default(now())
+  folders      Folder[]
+  files        File[]
+}
+
+model Folder {
+  id        String   @id @default(cuid())
+  name      String
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id])
+  parentId  String?
+  parent    Folder?  @relation("FolderChildren", fields: [parentId], references: [id])
+  children  Folder[] @relation("FolderChildren")
+  files     File[]
+  createdAt DateTime @default(now())
+
+  @@index([ownerId])
+  @@index([parentId])
+}
+
+model File {
+  id           String   @id @default(cuid())
+  originalName String
+  storageKey   String   // path/key in the storage backend (local disk or S3)
+  mimeType     String
+  size         Int
+  ownerId      String
+  owner        User     @relation(fields: [ownerId], references: [id])
+  folderId     String?
+  folder       Folder?  @relation(fields: [folderId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([folderId])
+}
